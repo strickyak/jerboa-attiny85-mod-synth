@@ -9,6 +9,13 @@
 #define MOC_TICKS 0
 #endif
 
+#ifndef WHICH_PWM
+#define WHICH_PWM 1  /* 1 or 4 */
+#endif
+
+#ifndef LED
+#define LED 0
+#endif
 
 // ATtiny{25,45,85}
 //
@@ -23,7 +30,7 @@
 extern void Setup(void);
 extern void Loop(void);
 
-namespace gerboa_internal {
+namespace jerboa_internal {
 
 volatile word spin_tmp;
 void SpinDelay(word n) {
@@ -33,17 +40,24 @@ void SpinDelay(word n) {
     }
   }
 }
+void SpinDelayFast(word n) {
+  for (word i = 0; i < n; i++) {
+      spin_tmp += i;
+  }
+}
 
 const PROGMEM char MoctalTick_GapFollows[] = {0/*unused*/, 0,1, 0,0,1, 0,0,1};
 
 bool led;
-void LedOn() { led = true; PORTB = 0x3F; }    // Set low bit; other bits are pullups.
-void LedOff() { led = false; PORTB = 0x3E; }  // Clear low bit; other bits are pullups.
+void LedOn() { led = true; digitalWrite(LED, HIGH); }    // Set low bit; other bits are pullups.
+void LedOff() { led = false; digitalWrite(LED, LOW); }  // Clear low bit; other bits are pullups.
 void LedToggle() { if (led) LedOff(); else LedOn(); }
 
 // Fault(n) stops everything else and makes flashy pulses in groups of n.
 void Fault(byte n) {
   cli(); // No more interrupts.
+  USICR = 0;
+  pinMode(LED, OUTPUT);
   while (true) {
     for (byte k = 0; k < n; k++) {
   	for (word i = 0; i < 8; i++) {
@@ -58,7 +72,6 @@ void Fault(byte n) {
   }
 }
 
-template <int PB>
 struct MoctalTicker {
   
   // You must zero these yourself, if not global.
@@ -68,7 +81,7 @@ struct MoctalTicker {
   volatile byte state;    // Counts bits and gaps.
 
   static void Setup() {
-    pinMode(PB, OUTPUT);
+    pinMode(LED, OUTPUT);
   }  
 
   void Tick() {
@@ -101,7 +114,7 @@ struct MoctalTicker {
     tick--;
   }
 };
-MoctalTicker<0> moc;
+MoctalTicker moc;
 
 // Timer/Counter 1 PWM Output OC1A (PB1)
 struct FastPwm1Base {
@@ -131,6 +144,26 @@ struct FastPwm1A : public FastPwm1Base {
   }
   static void Output(int x) {
     OCR1A = x;  // (p92)
+  }
+};
+
+struct FastPwm1B : public FastPwm1Base {
+  static void Setup() {
+    SetupPLL();
+  
+    // Set up Timer/Counter1 for PWM output
+    TIMSK  = 0;                        // Timer interrupts OFF (p92)
+    GTCCR  = _BV(PWM1B)                // Pulse Width Modulator B Enable. (p89)
+           | _BV(COM1B1);              // Clear OC1B on match; set on count $00 (p86).
+    TCCR1  = _BV(CS10);                // Do not enable PW Modulater A. 1:1 prescale. (p89)
+    OCR1C  = 255;                      // Full 8-bit PWM cycle (p92)
+    OCR1A  = 128;                      // Not used.
+    OCR1B  = 128;                      // 50% duty at start
+
+    pinMode(4, OUTPUT);                // Enable PWM output OC1B on pin PB4.
+  }
+  static void Output(int x) {
+    OCR1B = x;  // (p92)
   }
 };
 
@@ -180,9 +213,14 @@ struct AnalogIn {
   }
 };
 
+#if WHICH_PWM == 1
+FastPwm1A pwm;
+#else
+FastPwm1B pwm;
+#endif
+
 volatile byte AnalogA, AnalogB, AnalogR;
 AnalogIn in;
-FastPwm1A out;
 volatile byte adc_counter;
 volatile bool adc_switch;
 
@@ -210,18 +248,16 @@ ISR(ADC_vect) {
 }
 
 void setup() {
-  PORTB = 0x3E;  // pull ups
-  DDRB = 0x03;   // Only PB0 and PB1 are outputs.
-  DDRB = 0x03;   // Only PB0 and PB1 are outputs.
-  //pinMode(0, OUTPUT);  // C: LED on SparkFun ATtiny programmer.
+  pinMode(0, OUTPUT);
   LedOff();
-  //pinMode(1, OUTPUT);  // F: PWM out
-  //pinMode(2, INPUT_PULLUP);  // D: 
-  //pinMode(3, INPUT_PULLUP);  // A: Analog-to-Digital Converter Input PB3 (pin 2)
-  //pinMode(4, INPUT_PULLUP);  // B: Analog-to-Digital Converter Input PB4 (pin 3)
-  //pinMode(5, INPUT_PULLUP);  // R: RESET pin.
+  pinMode(1, OUTPUT);
+  pinMode(2, INPUT_PULLUP);
+  pinMode(3, INPUT_PULLUP);
+  pinMode(4, INPUT_PULLUP);
+  pinMode(5, INPUT_PULLUP);
+  pinMode(LED, OUTPUT);
 
-  out.Setup();
+  pwm.Setup();
   in.Setup();
   moc.Setup();
   moc.data = 0;
@@ -273,17 +309,19 @@ void loop() {
 
 }
 
-void setup() { gerboa_internal::setup(); }
-void loop() { gerboa_internal::loop(); }
+void setup() { jerboa_internal::setup(); }
+void loop() { jerboa_internal::loop(); }
 
-#define IN_A()   (gerboa_internal::AnalogA)
-#define IN_B()   (gerboa_internal::AnalogB)
-#define IN_R()   (gerboa_internal::AnalogR)
-#define OUT_F(B) (OCR1A = (B))
-#define MOCTAL(B)  (gerboa_internal::moc.data = (B))
-using gerboa_internal::LedOn;
-using gerboa_internal::LedOff;
-using gerboa_internal::LedToggle;
-using gerboa_internal::Fault;
+#define IN_A()   (jerboa_internal::AnalogA)
+#define IN_B()   (jerboa_internal::AnalogB)
+#define IN_R()   (jerboa_internal::AnalogR)
+#define OUT_F(B) (jerboa_internal::pwm.Output(B))
+#define MOCTAL(B)  (jerboa_internal::moc.data = (B))
+using jerboa_internal::LedOn;
+using jerboa_internal::LedOff;
+using jerboa_internal::LedToggle;
+using jerboa_internal::Fault;
+using jerboa_internal::SpinDelay;
+using jerboa_internal::SpinDelayFast;
 
 #endif
