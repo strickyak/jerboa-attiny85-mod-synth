@@ -4,18 +4,12 @@
 #include "/tmp/jerboa/jerboa.h"
 #include "/tmp/jerboa/net1.h"
 
-Slave s;
-
 void Setup() {
-  s.Setup();
+  Slave::Setup();
 }
 
 void Loop() {
-  while (true) {
-    //Fault(4);
-    byte x = s.Receive();
-    Fault(5);
-    OUT_F(x);
-    Fault(1+(x&15));
-  }
+  byte x = Slave::Receive();
+  OUT_F(x);
+  digitalWrite(3, Slave::slave_toggle ? HIGH : LOW);
 }

@@ -13,8 +13,8 @@
 #define WHICH_PWM 1  /* 1 or 4 */
 #endif
 
-#ifndef LED
-#define LED 0
+#ifndef WHICH_LED
+#define WHICH_LED 0
 #endif
 
 // ATtiny{25,45,85}
@@ -49,15 +49,15 @@ void SpinDelayFast(word n) {
 const PROGMEM char MoctalTick_GapFollows[] = {0/*unused*/, 0,1, 0,0,1, 0,0,1};
 
 bool led;
-void LedOn() { led = true; digitalWrite(LED, HIGH); }    // Set low bit; other bits are pullups.
-void LedOff() { led = false; digitalWrite(LED, LOW); }  // Clear low bit; other bits are pullups.
+void LedOn() { led = true; digitalWrite(WHICH_LED, HIGH); }    // Set low bit; other bits are pullups.
+void LedOff() { led = false; digitalWrite(WHICH_LED, LOW); }  // Clear low bit; other bits are pullups.
 void LedToggle() { if (led) LedOff(); else LedOn(); }
 
 // Fault(n) stops everything else and makes flashy pulses in groups of n.
 void Fault(byte n) {
   cli(); // No more interrupts.
   USICR = 0;
-  pinMode(LED, OUTPUT);
+  pinMode(WHICH_LED, OUTPUT);
   while (true) {
     for (byte k = 0; k < n; k++) {
   	for (word i = 0; i < 8; i++) {
@@ -81,7 +81,7 @@ struct MoctalTicker {
   volatile byte state;    // Counts bits and gaps.
 
   static void Setup() {
-    pinMode(LED, OUTPUT);
+    pinMode(WHICH_LED, OUTPUT);
   }  
 
   void Tick() {
@@ -186,8 +186,6 @@ struct AnalogIn {
   static void Setup() {
     ADCSRA = _BV(ADEN);  // Enable ADC first.
     
-    DIDR0 = 0x3F;  // shut down digital inputs to save power (p138)
-
     NextInputA();
             
     ADCSRB = 0; // free-running ADC; not Bipolar; not reversed. (p137)
@@ -248,14 +246,15 @@ ISR(ADC_vect) {
 }
 
 void setup() {
-  pinMode(0, OUTPUT);
-  LedOff();
-  pinMode(1, OUTPUT);
+  pinMode(0, INPUT_PULLUP);
+  pinMode(1, INPUT_PULLUP);
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
   pinMode(4, INPUT_PULLUP);
   pinMode(5, INPUT_PULLUP);
-  pinMode(LED, OUTPUT);
+  pinMode(WHICH_LED, OUTPUT);
+  pinMode(WHICH_PWM, OUTPUT);
+  LedOff();
 
   pwm.Setup();
   in.Setup();
@@ -269,7 +268,7 @@ void loop() {
   // no need to return; just loop here.
   while (true) {
 
-
+    // Wait for the next Analog sample in.
     {
       byte old_counter = adc_counter;
       byte c;
@@ -307,16 +306,25 @@ void loop() {
   }
 }
 
-}
+}  // namespace
 
 void setup() { jerboa_internal::setup(); }
 void loop() { jerboa_internal::loop(); }
+
+// public wrappers
+
+inline byte InA()   { return jerboa_internal::AnalogA; }
+inline byte InB()   { return jerboa_internal::AnalogB; }
+inline byte InR()   { return jerboa_internal::AnalogR; }
+inline void OutF(byte b) { jerboa_internal::pwm.Output(b); }
+inline void Moctal(byte b)  { jerboa_internal::moc.data = b; }
 
 #define IN_A()   (jerboa_internal::AnalogA)
 #define IN_B()   (jerboa_internal::AnalogB)
 #define IN_R()   (jerboa_internal::AnalogR)
 #define OUT_F(B) (jerboa_internal::pwm.Output(B))
 #define MOCTAL(B)  (jerboa_internal::moc.data = (B))
+
 using jerboa_internal::LedOn;
 using jerboa_internal::LedOff;
 using jerboa_internal::LedToggle;

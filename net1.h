@@ -25,7 +25,7 @@ class Master {
  public:
   static void Send(byte data) {
     DataReg = data;
-    for (byte i = 0; i < 8; i++) { ClockUp(); SpinDelayFast(20); ClockDown(); SpinDelayFast(40); }
+    for (byte i = 0; i < 8; i++) { ClockUp(); SpinDelayFast(15); ClockDown(); SpinDelayFast(15); }
     ControlReg = 0;
   }
   static void Setup() {
@@ -37,23 +37,49 @@ class Master {
 class Slave {
   static constexpr byte kThreeWireMode = _BV(USIWM0);
   static constexpr byte kExternalClockPositiveEdge = _BV(USICS1);
+  static constexpr byte kCounterOverflowInterruptEnable = _BV(USIOIE);
  public:
+  static volatile byte slave_data;
+  static volatile byte slave_ready;
+  static volatile byte slave_toggle;
+
   static void Setup() {
     pinMode(0, INPUT);  // Data In
+    pinMode(1, OUTPUT);  // Data Out
     pinMode(2, INPUT);  // Clock In
-    ControlReg = kThreeWireMode | kExternalClockPositiveEdge;
+    ControlReg = kThreeWireMode | kExternalClockPositiveEdge | kCounterOverflowInterruptEnable;
   }
   static byte Receive() {
+    slave_ready = false;
     DataReg = 0xFE;  // would be sent back to master, if we cared.
+#if 1
+    while (true) {
+      byte sr = slave_ready;
+      if (sr) break;
+    }
+    slave_ready = false;
+    return slave_data;
+#else
     StatusReg = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
     // Wait for counter Overflow:
     while ((StatusReg & _BV(USIOIF)) == 0) {
     	LedToggle();
-    	Fault(2);
     }
     return DataReg;
+#endif
   }
 };
+volatile byte Slave::slave_data;
+volatile byte Slave::slave_ready;
+volatile byte Slave::slave_toggle;
+
+ISR(USI_OVF_vect) {
+  StatusReg = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
+  Slave::slave_data = DataReg;     // Read the byte from the shift register.
+  Slave::slave_ready = true;
+  Slave::slave_toggle = !Slave::slave_toggle;
+}
+
 #undef DataReg
 #undef BufferReg
 #undef StatusReg
