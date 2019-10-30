@@ -13,11 +13,9 @@ void Loop() {
 
   if (phase & 0x8000) {
     OUT_F((-phase)>>7);
-    OUT_F(255);
     LedOn();
   } else {
     OUT_F(phase>>7);
-    OUT_F(0);
     LedOff();
   }
 }
