@@ -21,9 +21,9 @@
 //
 //         +--u--+
 //       x |R   V| x
-//   (3) 3 |A   D| 2 (1)
+//   (3) 3 |A   K| 2 (1)
 //   (2) 4 |B   F| 1
-//       x |G   C| 0
+//       x |G   L| 0
 //         +-----+
 //  (ADC)          PB
 
@@ -168,20 +168,20 @@ struct FastPwm1B : public FastPwm1Base {
 };
 
 struct AnalogIn {
-  static void NextInputB() {
-    ADMUX = 0 |    // Use Vcc for Reference; disconnect from PB0 (p134)
-            _BV(ADLAR) | // Left-Adjust the ADC Result in ADCH (p134)
-            2;     // ADC2 is PB4 is B.
-  }
   static void NextInputA() {
     ADMUX = 0 |    // Use Vcc for Reference; disconnect from PB0 (p134)
             _BV(ADLAR) | // Left-Adjust the ADC Result in ADCH (p134)
             3;     // ADC3 is PB3 is A.
   }
-  static void NextInputR() {
+  static void NextInputB() {
     ADMUX = 0 |    // Use Vcc for Reference; disconnect from PB0 (p134)
             _BV(ADLAR) | // Left-Adjust the ADC Result in ADCH (p134)
-            0;     // ADC0 is PB5 is R.
+            2;     // ADC2 is PB4 is B.
+  }
+  static void NextInputK() {
+    ADMUX = 0 |    // Use Vcc for Reference; disconnect from PB0 (p134)
+            _BV(ADLAR) | // Left-Adjust the ADC Result in ADCH (p134)
+            1;     // ADC1 is PB2 is K.
   }
   static void Setup() {
     ADCSRA = _BV(ADEN);  // Enable ADC first.
@@ -217,7 +217,7 @@ FastPwm1A pwm;
 FastPwm1B pwm;
 #endif
 
-volatile byte AnalogA, AnalogB, AnalogR;
+volatile byte AnalogA, AnalogB, AnalogK;
 AnalogIn in;
 volatile byte adc_counter;
 volatile bool adc_switch;
@@ -229,9 +229,9 @@ ISR(ADC_vect) {
     // One time out of 256 we sample R.  The rest we sample B.
     if (adc_counter == 2) {
       AnalogB = ADCH;          // on 2, we still save B, but request R next.
-      AnalogIn::NextInputR();
+      AnalogIn::NextInputK();
     } else if (adc_counter == 3) {
-      AnalogR = ADCH;          // on 3, we save R, but request B again.
+      AnalogK = ADCH;          // on 3, we save R, but request B again.
       AnalogIn::NextInputB();
       //LedToggle();
     } else {
@@ -315,13 +315,15 @@ void loop() { jerboa_internal::loop(); }
 
 inline byte InA()   { return jerboa_internal::AnalogA; }
 inline byte InB()   { return jerboa_internal::AnalogB; }
-inline byte InR()   { return jerboa_internal::AnalogR; }
+inline byte InR()   { return jerboa_internal::AnalogK; }  // R was old name for K.
+inline byte InK()   { return jerboa_internal::AnalogK; }
 inline void OutF(byte b) { jerboa_internal::pwm.Output(b); }
 inline void Moctal(byte b)  { jerboa_internal::moc.data = b; }
 
 #define IN_A()   (jerboa_internal::AnalogA)
 #define IN_B()   (jerboa_internal::AnalogB)
-#define IN_R()   (jerboa_internal::AnalogR)
+#define IN_R()   (jerboa_internal::AnalogK)  // R was old name for K.
+#define IN_K()   (jerboa_internal::AnalogK)
 #define OUT_F(B) (jerboa_internal::pwm.Output(B))
 #define MOCTAL(B)  (jerboa_internal::moc.data = (B))
 

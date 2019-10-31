@@ -1,5 +1,3 @@
-#define MOC_TICKS 0
-
 #include "/tmp/jerboa/jerboa.h"
 #include "/tmp/jerboa/generated-vfo-table.h"
 
@@ -8,10 +6,10 @@ word phase;
 void Setup() {}
 
 void Loop() {
-  word offset = word(IN_A()) + word(IN_B()) + word(IN_R());
+  word offset = word(InA()) + word(InB()) + word(InK());
   phase += pgm_read_word(VFO_TABLE+offset);
   
-  OUT_F(phase>>8);
+  OutF(phase>>8);
 
   if (phase & 0x8000) {
     LedOn();
