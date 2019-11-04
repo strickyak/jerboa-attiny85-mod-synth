@@ -1,3 +1,5 @@
+// ModMult is also a 4-quadrant Voltage Controlled Amplifier.
+
 #include "/tmp/jerboa/jerboa.h"
 #include "/tmp/jerboa/mult.h"
 
