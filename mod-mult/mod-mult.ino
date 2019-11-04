@@ -4,8 +4,8 @@
 void Setup() {}
 
 void Loop() {
-  int z = SignedMult8x8(IN_A()-128, IN_B()-128) >> 6;
-  if (z>127) z=127;
-  if (z< -127) z= -127;
-  OUT_F(128 + z);
+  int z = SignedMult8x8(InA()-128, InB()-InK()) >> 6;  // why 6? maybe 7?
+  if (z>127) z=127;      // hard clip
+  if (z< -127) z= -127;  // hard clip
+  OutF(z);
 }
