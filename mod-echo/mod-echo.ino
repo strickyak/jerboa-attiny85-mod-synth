@@ -8,13 +8,11 @@ byte stretch;
 void Setup() {}
 
 void Loop() {
-  int level = int(InB() >> 3) - int(InK()>>3);
-  if (level < 0) level = 0;
-  if (level > 31) level = 31;
+  int level = 31 & ((InK() - 32) >>3);
   byte n = level + 1;
 
   ++stretch;
-  if (stretch <= n) {
+  if (stretch < n) {
     return;
   }
   stretch = 0;
