@@ -16,5 +16,7 @@ void Loop() {
   ++wait;
   if (wait < InK()) return;
   wait = INITIAL;
-  OutF(RandomByte());
+  byte b = RandomByte();
+  OutF(b);
+  if (b>240) LedOn(); else LedOff();
 }
