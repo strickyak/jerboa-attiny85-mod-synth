@@ -22,10 +22,10 @@ const TINY_STEPS = OCTAVES_PER_SPAN / 256.0
 const N = 256 * OCTAVES / OCTAVES_PER_SPAN  // == 768
 
 func main() {
-	fmt.Printf("#ifndef VFO_TABLE_H_\n")
-	fmt.Printf("#define VFO_TABLE_H_\n\n")
+	fmt.Printf("#ifndef VCO_TABLE_H_\n")
+	fmt.Printf("#define VCO_TABLE_H_\n\n")
 
-	fmt.Printf("const word VFO_TABLE[] PROGMEM = {\n")
+	fmt.Printf("const word VCO_TABLE[] PROGMEM = {\n")
 
 	for i := 1 - N; i <= 0; i++ {
 		hz := MAX_FREQ * math.Pow(2, float64(i)*TINY_STEPS)
