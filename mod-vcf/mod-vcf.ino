@@ -1,8 +1,7 @@
 #include "/tmp/jerboa/jerboa.h"
 
-int filtered;
-byte history[256];  // circular buffer
-int p;  // points current position in history
+byte H[256];  // circular buffer for History.
+byte p;  // points current position in H
 
 void Setup() {}
 
@@ -10,31 +9,28 @@ void Loop() {
   int level = int(InB() >> 3) - int(InK()>>3);
   if (level < 0) level = 0;
   if (level > 31) level = 31;
-  byte n = level + 1;
+  byte n = level + 1;  // n==0 just outputs zero.
 
-  p = 255 & (p+1);
+  ++p;
   byte audio = InA();
-  history[p] = audio;
+  H[p] = audio;
 
-#if 1
-  // approximate a convolution of n +1s and n -1s.
-  int delta = audio - 2*history[255 & (p-n)] + history[255 & (p-n-n)];
-  filtered += delta;
-#else
-  #define H(I) history[255 & (p-(I))]
-  if (n > 8) {
-    byte m = n >> 3;
-    int delta = audio + 2*H(m) + 4*H(2*m-1) - 4*H(2*m+1) - 2*H(3*m) - 2*H(4*m) - 2*H(5*m) - 4*H(6*m-1) + 4*H(6*m+1) + 2*H(7*m) + H(n);
-    filtered += delta;
-  } else {
-    int delta = audio - 2*history[255 & (p-n)] + history[255 & (p-n-n)];
-    filtered += delta;
-  }
-#endif
+  byte p1 = p-n;
+  byte p2 = p1-n;
+  byte p3 = p2-n;
+  byte p4 = p3-n;
+  byte p5 = p4-n;
+  byte p6 = p5-n;
+  byte p7 = p6-n;
+
+  // Do the convlution with four +1 terms and four -1 terms, separated by zeros.
+  // Improvements: multiply by 2 instead of 1.
+  // Cast first term to (unsigned) to defeat byte arithmetic in cmoc-like compilers.
+  int out = (int)((unsigned)audio + 2*H[p1] + 2*H[p2] + H[p3]);
+  out -= (int)((unsigned)H[p4] + 2*H[p5] + 2*H[p6] + H[p7]);
 
   // Clamp filtered output between 0 and 255.
-  if (filtered < 0)   filtered = 0;
-  if (filtered > 255) filtered = 255;
-
-  OutF(filtered);
+  if (out < 0)   out = 0;
+  if (out > 255) out = 255;
+  OutF(out);
 }
