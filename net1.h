@@ -4,10 +4,10 @@
 // net1.h -- network of 1-way (single duplex) master-to-slave commands.
 //
 // attiny{25,45,85} Serial registers:
-#define DataReg USIDR
-#define BufferReg USIBR
-#define StatusReg USISR
-#define ControlReg USICR
+#define DataREG USIDR
+#define BufferREG USIBR
+#define StatusREG USISR
+#define ControlREG USICR
 
 class Master {
   // Clock out: pin7 = PB2 = USCK = Clock Out
@@ -19,14 +19,14 @@ class Master {
   static constexpr byte kToggleClock = _BV(USITC);
   static constexpr byte kStrobe = _BV(USICLK);
 
-  static void ClockUp() { ControlReg = kThreeWireMode | kNoClock | kToggleClock | 0; }
-  static void ClockDown() { ControlReg = kThreeWireMode | kNoClock | kToggleClock | kStrobe; }
+  static void ClockUp() { ControlREG = kThreeWireMode | kNoClock | kToggleClock | 0; }
+  static void ClockDown() { ControlREG = kThreeWireMode | kNoClock | kToggleClock | kStrobe; }
 
  public:
   static void Send(byte data) {
-    DataReg = data;
+    DataREG = data;
     for (byte i = 0; i < 8; i++) { ClockUp(); SpinDelayFast(15); ClockDown(); SpinDelayFast(15); }
-    ControlReg = 0;
+    ControlREG = 0;
   }
   static void Setup() {
     pinMode(1, OUTPUT);  // Data OUT
@@ -37,6 +37,7 @@ class Master {
 class Slave {
   static constexpr byte kThreeWireMode = _BV(USIWM0);
   static constexpr byte kExternalClockPositiveEdge = _BV(USICS1);
+  static constexpr byte kExternalClockNegativeEdge = _BV(USICS1) | _BV(USICS0);
   static constexpr byte kCounterOverflowInterruptEnable = _BV(USIOIE);
  public:
   static volatile byte slave_data;
@@ -45,44 +46,77 @@ class Slave {
 
   static void Setup() {
     pinMode(0, INPUT);  // Data In
+#if 1
+    pinMode(1, INPUT);     // Try another input.
+    PCMSK |= 1<<1;         // Pin-Change interrupt on PB1.
+    //////// MCUCR |= 3;            // Interrupt on rising edge.
+    GIMSK |= _BV(PCIE);    // Pin change interrupt enable
+#else
     pinMode(1, OUTPUT);  // Data Out
+#endif
     pinMode(2, INPUT);  // Clock In
-    ControlReg = kThreeWireMode | kExternalClockPositiveEdge | kCounterOverflowInterruptEnable;
+    StatusREG = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
+    ControlREG = kThreeWireMode | kExternalClockPositiveEdge | kCounterOverflowInterruptEnable;
   }
   static byte Receive() {
     slave_ready = false;
-    DataReg = 0xFE;  // would be sent back to master, if we cared.
-#if 1
+    DataREG = 0xFE;  // would be sent back to master, if we cared.
+/**/
     while (true) {
       byte sr = slave_ready;
       if (sr) break;
     }
     slave_ready = false;
     return slave_data;
-#else
-    StatusReg = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
+
+/*
+    StatusREG = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
     // Wait for counter Overflow:
-    while ((StatusReg & _BV(USIOIF)) == 0) {
+    while ((StatusREG & _BV(USIOIF)) == 0) {
     	LedToggle();
     }
-    return DataReg;
-#endif
+    return DataREG;
+*/
   }
 };
+
 volatile byte Slave::slave_data;
 volatile byte Slave::slave_ready;
 volatile byte Slave::slave_toggle;
 
 ISR(USI_OVF_vect) {
-  StatusReg = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
-  Slave::slave_data = DataReg;     // Read the byte from the shift register.
-  Slave::slave_ready = true;
+  StatusREG = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
+  Slave::slave_data = DataREG;     // Read the byte from the shift register.
+
+#if 0
+  if (Slave::slave_data == 0) {
+    // Synchronize.
+    while (DataREG != 0xFF) {
+      StatusREG = _BV(USIOIF) | 0x0E;  // Clear the counter Overflow Interrupt Flag, and set counter for 1 bit (2 edges).
+      while (!(StatusREG & _BV(USIOIF))) {
+        continue; // Wait until overflow flag, meaning we got 1 more bit.
+      }
+    }
+    Slave::slave_data == 0;  // Return 0 after sync.
+  }
+#endif
+
   Slave::slave_toggle = !Slave::slave_toggle;
+  Slave::slave_ready = true;
 }
 
-#undef DataReg
-#undef BufferReg
-#undef StatusReg
-#undef ControlReg
+//XX volatile bool led_blink;
+ISR(PCINT0_vect) {
+  if (PINB & (1<<1)) {
+    StatusREG = _BV(USIOIF);  // Clear the counter Overflow Interrupt Flag.
+    //XX led_blink = !led_blink;
+    //XX digitalWrite(WHICH_LED, led_blink ? HIGH : LOW);
+  }
+}
+
+#undef DataREG
+#undef BufferREG
+#undef StatusREG
+#undef ControlREG
 
 #endif

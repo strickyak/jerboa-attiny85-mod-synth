@@ -1,5 +1,5 @@
 #define WHICH_PWM 4
-#define LED 3
+#define WHICH_LED 3
 
 #include "/tmp/jerboa/jerboa.h"
 #include "/tmp/jerboa/net1.h"

@@ -16,9 +16,9 @@ func main() {
 	fmt.Printf("const byte SIN_TABLE[] PROGMEM = {\n")
 
 	for i := 0; i < N; i++ {
-		x := float64(i) * math.Pi / 2 / (N-1)
+		x := float64(i) * math.Pi / 2 / (N - 1)
 		y := math.Sin(x)
-		fmt.Printf("  /* %3d: %10.6f */ 0x%02x,\n", i, y, int(y * 255))
+		fmt.Printf("  /* %3d: %10.6f */ 0x%02x,\n", i, y, int(y*255))
 	}
 
 	fmt.Printf("};\n")

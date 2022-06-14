@@ -1,7 +1,7 @@
-#ifndef VFO_TABLE_H_
-#define VFO_TABLE_H_
+#ifndef VCO_TABLE_H_
+#define VCO_TABLE_H_
 
-const word VFO_TABLE[] PROGMEM = {
+const word VCO_TABLE[] PROGMEM = {
   /* -767:     0.2475Hz */ 1,
   /* -766:     0.2508Hz */ 1,
   /* -765:     0.2543Hz */ 1,

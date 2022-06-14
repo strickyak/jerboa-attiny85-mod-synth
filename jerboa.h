@@ -52,6 +52,7 @@ bool led;
 void LedOn() { led = true; digitalWrite(WHICH_LED, HIGH); }    // Set low bit; other bits are pullups.
 void LedOff() { led = false; digitalWrite(WHICH_LED, LOW); }  // Clear low bit; other bits are pullups.
 void LedToggle() { if (led) LedOff(); else LedOn(); }
+void LedSet(bool value) { if (value) LedOn(); else LedOff(); }
 
 // Fault(n) stops everything else and makes flashy pulses in groups of n.
 void Fault(byte n) {
@@ -226,14 +227,13 @@ ISR(ADC_vect) {
   if (adc_switch) {
     ++adc_counter;
     adc_switch = false;
-    // One time out of 256 we sample R.  The rest we sample B.
+    // One time out of 256 we sample K.  The rest we sample B.
     if (adc_counter == 2) {
-      AnalogB = ADCH;          // on 2, we still save B, but request R next.
+      AnalogB = ADCH;          // on 2, we still save B, but request K next.
       AnalogIn::NextInputK();
     } else if (adc_counter == 3) {
-      AnalogK = ADCH;          // on 3, we save R, but request B again.
+      AnalogK = ADCH;          // on 3, we save K, but request B again.
       AnalogIn::NextInputB();
-      //LedToggle();
     } else {
       AnalogB = ADCH;
       AnalogIn::NextInputB();
@@ -330,6 +330,7 @@ inline void Moctal(byte b)  { jerboa_internal::moc.data = b; }
 using jerboa_internal::LedOn;
 using jerboa_internal::LedOff;
 using jerboa_internal::LedToggle;
+using jerboa_internal::LedSet;
 using jerboa_internal::Fault;
 using jerboa_internal::SpinDelay;
 using jerboa_internal::SpinDelayFast;
